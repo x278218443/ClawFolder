@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "skills": {
+    "openclaw-tavily-search": {
+      "version": "0.1.0",
+      "installedAt": 1774597303048
+    },
+    "summarize": {
+      "version": "1.0.0",
+      "installedAt": 1774597304633
+    },
+    "memory-hygiene": {
+      "version": "1.0.0",
+      "installedAt": 1774597306962
+    },
+    "github": {
+      "version": "1.0.0",
+      "installedAt": 1774597308504
+    },
+    "agent-browser-clawdbot": {
+      "version": "0.1.0",
+      "installedAt": 1774597310193
+    },
+    "tencentcloud-lighthouse-skill": {
+      "version": "1.0.0",
+      "installedAt": 1774597312595
+    },
+    "tencent-docs": {
+      "version": "1.0.21",
+      "installedAt": 1774597318858
+    },
+    "tencent-cos-skill": {
+      "version": "1.0.6",
+      "installedAt": 1774597322211
+    },
+    "tencent-meeting-skill": {
+      "version": "1.0.0",
+      "installedAt": 1774597324890
+    },
+    "ima-skills": {
+      "version": "1.1.2",
+      "installedAt": 1774597327547
+    },
+    "web-tools-guide": {
+      "version": "1.0.2",
+      "installedAt": 1778606444411
+    },
+    "minimax-image-generation": {
+      "version": "1.0.0",
+      "installedAt": 1775185674120
+    },
+    "minimax-web-search": {
+      "version": "1.0.7",
+      "installedAt": 1775201910529
+    },
+    "minimax-mcp": {
+      "version": "1.0.3",
+      "installedAt": 1775201934865
+    },
+    "minimax-vision-captcha": {
+      "version": "1.0.0",
+      "installedAt": 1775201974072
+    },
+    "minimax-speech": {
+      "version": "1.0.0",
+      "installedAt": 1775234363685
+    },
+    "minimax-understand-image": {
+      "version": "1.0.3",
+      "installedAt": 1776162181679
+    },
+    "minimax-xlsx": {
+      "version": "1.0.0",
+      "installedAt": 1775234404074
+    },
+    "minimax-pdf": {
+      "version": "1.0.0",
+      "installedAt": 1775234413153
+    },
+    "minimax-docx": {
+      "version": "1.0.0",
+      "installedAt": 1775234419213
+    },
+    "minimax-tts-cn": {
+      "version": "1.0.0",
+      "installedAt": 1776133150297
+    },
+    "feishu-voice-lobster": {
+      "version": "1.0.0",
+      "installedAt": 1776133544699
+    },
+    "minimax-coding-plan": {
+      "version": "0.1.1",
+      "installedAt": 1776162034799
+    },
+    "mimo-tts": {
+      "version": "1.2.0",
+      "installedAt": 1777442147254
+    }
+  }
+}

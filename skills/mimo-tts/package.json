@@ -1,0 +1,38 @@
+{
+  "name": "mimo-tts",
+  "version": "1.2.0",
+  "description": "小米 MiMo V2-TTS 语音合成 OpenClaw Skill",
+  "main": "index.js",
+  "bin": {
+    "mimo-tts": "./index.js"
+  },
+  "scripts": {
+    "test": "node index.js --help",
+    "preview": "node index.js --preview-voices"
+  },
+  "keywords": [
+    "tts",
+    "text-to-speech",
+    "mimo",
+    "xiaomi",
+    "voice",
+    "audio",
+    "openclaw-skill"
+  ],
+  "author": "OpenClaw Community",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/openclaw/skills/tree/main/mimo-tts"
+  },
+  "bugs": {
+    "url": "https://github.com/openclaw/skills/issues"
+  },
+  "homepage": "https://github.com/openclaw/skills/tree/main/mimo-tts#readme",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "dependencies": {
+    "openai": "^4.0.0"
+  }
+}

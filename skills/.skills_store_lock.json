@@ -1,0 +1,89 @@
+{
+  "version": 1,
+  "skills": {
+    "nano-banana-pro": {
+      "name": "Nano Banana Pro",
+      "zip_url": "https://lightmake.site/api/v1/download?slug=nano-banana-pro",
+      "source": "skillhub",
+      "version": "1.0.1"
+    },
+    "minimax-image-generation": {
+      "name": "minimax-image",
+      "zip_url": "https://lightmake.site/api/v1/download?slug=minimax-image-generation",
+      "source": "skillhub",
+      "version": "1.0.0"
+    },
+    "minimax-web-search": {
+      "name": "minimax-web-search",
+      "zip_url": "https://lightmake.site/api/v1/download?slug=minimax-web-search",
+      "source": "skillhub",
+      "version": "1.0.7"
+    },
+    "minimax-mcp": {
+      "name": "Minimax Mcp",
+      "zip_url": "https://lightmake.site/api/v1/download?slug=minimax-mcp",
+      "source": "skillhub",
+      "version": "1.0.3"
+    },
+    "minimax-vision-captcha": {
+      "name": "MiniMax Vision Captcha",
+      "zip_url": "https://lightmake.site/api/v1/download?slug=minimax-vision-captcha",
+      "source": "skillhub",
+      "version": "1.0.0"
+    },
+    "minimax-speech": {
+      "name": "MiniMax Speech 2.8",
+      "zip_url": "https://lightmake.site/api/v1/download?slug=minimax-speech",
+      "source": "skillhub",
+      "version": "1.0.0"
+    },
+    "minimax-understand-image": {
+      "name": "minimax-understand-image",
+      "zip_url": "https://lightmake.site/api/v1/download?slug=minimax-understand-image",
+      "source": "skillhub",
+      "version": "1.0.3"
+    },
+    "minimax-xlsx": {
+      "name": "Minimax Xlsx",
+      "zip_url": "https://lightmake.site/api/v1/download?slug=minimax-xlsx",
+      "source": "skillhub",
+      "version": "1.0.0"
+    },
+    "minimax-pdf": {
+      "name": "Minimax Pdf",
+      "zip_url": "https://lightmake.site/api/v1/download?slug=minimax-pdf",
+      "source": "skillhub",
+      "version": "1.0.0"
+    },
+    "minimax-docx": {
+      "name": "Minimax Docx",
+      "zip_url": "https://lightmake.site/api/v1/download?slug=minimax-docx",
+      "source": "skillhub",
+      "version": "1.0.0"
+    },
+    "minimax-tts-cn": {
+      "name": "MiniMax TTS 国内版",
+      "zip_url": "https://lightmake.site/api/v1/download?slug=minimax-tts-cn",
+      "source": "skillhub",
+      "version": "1.0.0"
+    },
+    "feishu-voice-lobster": {
+      "name": "飞书语音",
+      "zip_url": "https://lightmake.site/api/v1/download?slug=feishu-voice-lobster",
+      "source": "skillhub",
+      "version": "1.0.0"
+    },
+    "minimax-coding-plan": {
+      "name": "MiniMax Coding Plan",
+      "zip_url": "https://lightmake.site/api/v1/download?slug=minimax-coding-plan",
+      "source": "skillhub",
+      "version": "0.1.1"
+    },
+    "mimo-tts": {
+      "name": "小米 MiMo V2-TTS 语音合成技能",
+      "zip_url": "https://lightmake.site/api/v1/download?slug=mimo-tts",
+      "source": "skillhub",
+      "version": "1.2.0"
+    }
+  }
+}
