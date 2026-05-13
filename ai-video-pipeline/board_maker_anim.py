@@ -419,31 +419,6 @@ def make_animated_board(
         )
         clips.append(img_clip)
 
-    # --- 时间轴 ---
-    fade_in = 0.4
-    fade_out = 0.4
-    title_delay = 0.3
-    line_interval = 0.6
-    hold_time = 1.5
-
-    num_items = 1 + len(highlights) + len(details)
-    content_end = title_delay + (num_items - 1) * line_interval + hold_time
-    total_duration = content_end + fade_in + fade_out
-
-    if audio_duration and audio_duration > total_duration:
-        total_duration = audio_duration
-        hold_time = total_duration - fade_in - fade_out - title_delay - (num_items - 1) * line_interval
-
-    # --- 背景 ---
-    if bg_color1 and bg_color2:
-        bg_frame = _make_bg_frame_custom(bg_color1, bg_color2)
-    else:
-        bg_frame = _make_bg_frame()
-    bg_clip = ImageClip(bg_frame).with_duration(total_duration)
-
-    # --- 新闻配图层 ---
-    clips = [bg_clip]
-
     # 右下角水印
     wm_img = _make_text_image(logo_text, FONT_REGULAR, 24, TEXT_DIM)
     wm_clip = (
