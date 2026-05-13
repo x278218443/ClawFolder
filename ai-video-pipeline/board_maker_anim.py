@@ -1,11 +1,13 @@
 """
 AI 短视频流水线 - 动画板书生成器（MoviePy 版）
-参考黑鸦Heya风格：深蓝紫渐变 + 极简排版 + 数字黄色高亮 + 大量留白
+参考黑鸦Heya风格：左侧新闻配图 + 右侧标题/详情/数字高亮
 """
 import os
 import re
+import io
+import requests
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
 from moviepy import (
     VideoClip, ImageClip, ColorClip, CompositeVideoClip,
     concatenate_videoclips, AudioFileClip, VideoFileClip
@@ -94,6 +96,88 @@ def _get_brand_color(text):
         if brand in text:
             return color
     return None
+
+
+def _load_news_image(image_url_or_path, target_w, target_h):
+    """
+    加载新闻配图并裁剪/缩放到目标尺寸
+    支持 URL 和本地路径
+    返回 PIL Image (RGBA) 或 None
+    """
+    try:
+        if not image_url_or_path:
+            return None
+
+        if image_url_or_path.startswith(('http://', 'https://')):
+            resp = requests.get(image_url_or_path, timeout=10, headers={
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)'
+            })
+            resp.raise_for_status()
+            img = Image.open(io.BytesIO(resp.content)).convert('RGBA')
+        else:
+            if not os.path.exists(image_url_or_path):
+                return None
+            img = Image.open(image_url_or_path).convert('RGBA')
+
+        # 等比缩放并居中裁剪
+        src_w, src_h = img.size
+        src_ratio = src_w / src_h
+        target_ratio = target_w / target_h
+
+        if src_ratio > target_ratio:
+            # 图片更宽，按高度缩放后裁中间
+            new_h = target_h
+            new_w = int(src_w * (target_h / src_h))
+        else:
+            # 图片更高，按宽度缩放后裁顶部（新闻图主体通常在上部）
+            new_w = target_w
+            new_h = int(src_h * (target_w / src_w))
+
+        img = img.resize((new_w, new_h), Image.LANCZOS)
+
+        # 居中裁剪
+        left = (new_w - target_w) // 2
+        top = (new_h - target_h) // 4  # 偏上裁剪，保留主体
+        img = img.crop((left, top, left + target_w, top + target_h))
+
+        return img
+    except Exception as e:
+        print(f"[图片] 加载失败: {e}")
+        return None
+
+
+def _apply_image_overlay_effects(img_pil, bg_color1, bg_color2):
+    """
+    给新闻配图加效果：
+    - 右侧渐变遮罩（和背景融合）
+    - 轻微暗角
+    - 顶部底部渐变
+    """
+    w, h = img_pil.size
+    overlay = Image.new('RGBA', (w, h), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+
+    # 右侧渐变遮罩（从透明到背景色，宽度 30%）
+    mask_w = int(w * 0.3)
+    bg_r, bg_g, bg_b = bg_color1 if bg_color1 else (18, 18, 42)
+    for x in range(mask_w):
+        alpha = int(255 * (x / mask_w) ** 1.5)
+        draw.line([(w - mask_w + x, 0), (w - mask_w + x, h)], fill=(bg_r, bg_g, bg_b, alpha))
+
+    # 顶部渐变遮罩（从背景色到透明，高度 15%）
+    top_h = int(h * 0.15)
+    for y in range(top_h):
+        alpha = int(180 * (1 - y / top_h) ** 2)
+        draw.line([(0, y), (w, y)], fill=(bg_r, bg_g, bg_b, alpha))
+
+    # 底部渐变遮罩（更重，高度 25%）
+    bot_h = int(h * 0.25)
+    for y in range(bot_h):
+        alpha = int(220 * (y / bot_h) ** 1.5)
+        draw.line([(0, h - bot_h + y), (w, h - bot_h + y)], fill=(bg_r, bg_g, bg_b, alpha))
+
+    result = Image.alpha_composite(img_pil, overlay)
+    return result
 
 
 def _make_text_image(text, font_path, font_size, color, max_width=None, line_spacing=1.3):
@@ -243,21 +327,20 @@ def make_animated_board(
     audio_duration: float = None,
     bg_color1=None,
     bg_color2=None,
+    image_path: str = None,
 ) -> str:
     """
     生成一条带动画效果的板书视频 — 黑鸦Heya风格
 
-    设计要点：
-    - 深蓝紫渐变背景 + 极淡网格
-    - 数字黄色高亮，品牌色匹配
-    - 大量留白，极简排版
-    - 右下角水印
-    - 文字逐行淡入
+    布局：
+    - 有图时：左侧 45% 配图 + 右侧 55% 文字
+    - 无图时：全宽文字（原布局）
     """
     headline = segment.get("headline", "")
     narration = segment.get("narration", "")
     seg_type = segment.get("type", "news")
     category = segment.get("category", "")
+    seg_image_url = image_path or segment.get("image_url", None)
 
     # 标题卡/结尾卡走专用函数
     if seg_type in ("title", "ending"):
@@ -276,11 +359,29 @@ def make_animated_board(
     else:
         highlights = _find_highlights(narration)
 
+    # --- 加载新闻配图 ---
+    IMG_W = int(W * 0.42)   # 图片占 42% 宽度
+    IMG_H = H               # 全高
+    IMG_X = 0               # 贴左边
+    IMG_Y = 0
+
+    has_image = False
+    news_img_pil = _load_news_image(seg_image_url, IMG_W, IMG_H) if seg_image_url else None
+    if news_img_pil is not None:
+        has_image = True
+        # 加渐变遮罩效果
+        news_img_pil = _apply_image_overlay_effects(news_img_pil, bg_color1, bg_color2)
+        news_img_np = np.array(news_img_pil)
+
+    # 文字区域：有图时右移，无图时原位
+    TEXT_LEFT = IMG_W + 60 if has_image else 180
+    TEXT_AREA_W = W - TEXT_LEFT - 80  # 右侧留白
+
     # --- 时间轴 ---
     fade_in = 0.4
     fade_out = 0.4
     title_delay = 0.3
-    line_interval = 0.6     # 每行间隔（稍慢，呼吸感）
+    line_interval = 0.6
     hold_time = 1.5
 
     num_items = 1 + len(highlights) + len(details)
@@ -298,7 +399,17 @@ def make_animated_board(
         bg_frame = _make_bg_frame()
     bg_clip = ImageClip(bg_frame).with_duration(total_duration)
 
-    # 右下角水印（"AI 日报"，低调）
+    # --- 新闻配图层 ---
+    clips = [bg_clip]
+    if has_image:
+        img_clip = (
+            ImageClip(news_img_np)
+            .with_duration(total_duration)
+            .with_position((IMG_X, IMG_Y))
+        )
+        clips.append(img_clip)
+
+    # 右下角水印
     wm_img = _make_text_image(logo_text, FONT_REGULAR, 24, TEXT_DIM)
     wm_clip = (
         ImageClip(wm_img)
@@ -306,18 +417,18 @@ def make_animated_board(
         .with_position((W - wm_img.shape[1] - 40, H - wm_img.shape[0] - 30))
         .with_opacity(0.5)
     )
+    clips.append(wm_clip)
 
     # --- 文字动画层 ---
     text_clips = []
-    y_cursor = 160        # 顶部留白更多
-    x_left = 180          # 左侧留白更多
+    y_cursor = 160
 
-    # 检测品牌色（用于标题中的品牌词）
+    # 检测品牌色
     brand_color = _get_brand_color(main_title)
 
-    # 1. 主标题（大字，白色/品牌色）
+    # 1. 主标题
     title_color = brand_color if brand_color else TEXT_WHITE
-    title_img = _make_text_image(main_title, FONT_BOLD, 68, title_color, max_width=W - 360)
+    title_img = _make_text_image(main_title, FONT_BOLD, 68, title_color, max_width=TEXT_AREA_W)
     title_h = title_img.shape[0]
     title_start = fade_in + title_delay
     title_dur = total_duration - title_start - fade_out
@@ -326,14 +437,14 @@ def make_animated_board(
         ImageClip(title_img)
         .with_duration(title_dur)
         .with_start(title_start)
-        .with_position((x_left, y_cursor))
+        .with_position((TEXT_LEFT, y_cursor))
     )
     text_clips.append(title_clip)
-    y_cursor += title_h + 50  # 更多留白
+    y_cursor += title_h + 50
 
-    # 2. 关键数字（明黄色大字，独立成行）
+    # 2. 关键数字
     for i, hl in enumerate(highlights):
-        hl_img = _make_text_image(hl, FONT_BOLD, 56, TEXT_YELLOW, max_width=W - 360)
+        hl_img = _make_text_image(hl, FONT_BOLD, 56, TEXT_YELLOW, max_width=TEXT_AREA_W)
         hl_h = hl_img.shape[0]
         hl_start = fade_in + title_delay + (i + 1) * line_interval
         hl_dur = total_duration - hl_start - fade_out
@@ -342,14 +453,14 @@ def make_animated_board(
             ImageClip(hl_img)
             .with_duration(hl_dur)
             .with_start(hl_start)
-            .with_position((x_left, y_cursor))
+            .with_position((TEXT_LEFT, y_cursor))
         )
         text_clips.append(hl_clip)
         y_cursor += hl_h + 30
 
-    # 3. 详情要点（灰色，小字，最多3条）
+    # 3. 详情要点
     for i, detail in enumerate(details):
-        detail_img = _make_text_image(detail, FONT_REGULAR, 32, TEXT_GRAY, max_width=W - 360)
+        detail_img = _make_text_image(detail, FONT_REGULAR, 32, TEXT_GRAY, max_width=TEXT_AREA_W)
         detail_h = detail_img.shape[0]
         detail_start = fade_in + title_delay + (1 + len(highlights) + i) * line_interval
         detail_dur = total_duration - detail_start - fade_out
@@ -358,13 +469,13 @@ def make_animated_board(
             ImageClip(detail_img)
             .with_duration(detail_dur)
             .with_start(detail_start)
-            .with_position((x_left, y_cursor))
+            .with_position((TEXT_LEFT, y_cursor))
         )
         text_clips.append(detail_clip)
         y_cursor += detail_h + 20
 
     # --- 合成 ---
-    all_clips = [bg_clip, wm_clip] + text_clips
+    all_clips = clips + text_clips
     final = CompositeVideoClip(all_clips, size=(W, H))
 
     # 整体淡入淡出
@@ -372,7 +483,7 @@ def make_animated_board(
         from moviepy.video.fx import FadeIn, FadeOut
         final = final.with_effects([FadeIn(fade_in), FadeOut(fade_out)])
     except Exception:
-        print("[动画板书] 警告：淡入淡出效果不可用，使用默认输出")
+        print("[动画板书] 警告：淡入淡出效果不可用")
         pass
 
     # --- 输出 ---
@@ -388,7 +499,8 @@ def make_animated_board(
         logger=None,
     )
 
-    print(f"[动画板书] 生成完成: {output_path} ({total_duration:.1f}s)")
+    img_tag = " + 配图" if has_image else ""
+    print(f"[动画板书] 生成完成: {output_path} ({total_duration:.1f}s){img_tag}")
     return output_path
 
 
@@ -400,6 +512,7 @@ def make_animated_board_with_audio(
     index: int = 0,
     bg_color1=None,
     bg_color2=None,
+    image_path: str = None,
 ) -> str:
     """生成带动画+音频的板书视频"""
     audio = AudioFileClip(audio_path)
@@ -407,7 +520,7 @@ def make_animated_board_with_audio(
 
     temp_video = output_path.replace(".mp4", "_noaudio.mp4")
     make_animated_board(segment, temp_video, logo_text, index, audio_duration=duration,
-                        bg_color1=bg_color1, bg_color2=bg_color2)
+                        bg_color1=bg_color1, bg_color2=bg_color2, image_path=image_path)
 
     video = VideoFileClip(temp_video).with_duration(duration)
     video = video.with_audio(audio)

@@ -219,11 +219,13 @@ def main():
 
         print(f"  seg_{sid:02d}: {seg_type} / {target_dur:.1f}s ...")
         try:
+            img_path = seg.get("image_url") or seg.get("image_path")
             if tts_path and os.path.exists(tts_path):
                 make_animated_board_with_audio(
                     seg, tts_path, seg_path,
                     logo_text=f"AI 早报 {now.strftime('%Y-%m-%d')}", index=i,
                     bg_color1=bg[0], bg_color2=bg[1],
+                    image_path=img_path,
                 )
             else:
                 make_animated_board(
@@ -231,6 +233,7 @@ def main():
                     logo_text=f"AI 早报 {now.strftime('%Y-%m-%d')}", index=i,
                     audio_duration=target_dur,
                     bg_color1=bg[0], bg_color2=bg[1],
+                    image_path=img_path,
                 )
             if os.path.exists(seg_path):
                 size_kb = os.path.getsize(seg_path) / 1024
