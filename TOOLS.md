@@ -39,6 +39,13 @@ Skills are shared. Your setup is yours. Keeping them apart means you can update 
 
 Add whatever helps you do your job. This is your cheat sheet.
 
+## GitHub
+- 仓库: https://github.com/x278218443/ClawFolder.git
+- Token 存在 `.env` 的 `GITHUB_TOKEN` 变量中
+- 推送方式: `git push -f origin main`（workspace 根目录）
+- 注意: .gitignore 已配置（output/、node_modules/、*.mp4 等），勿提交大文件
+- 如果 remote 报错，先 `git pull origin main --allow-unrelated-histories`
+
 ## MiMo TTS 配置
 - API Base: https://token-plan-cn.xiaomimimo.com/v1
 - API Key: 同 xiaomicoding chat key (tp- 开头)
