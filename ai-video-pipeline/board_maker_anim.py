@@ -360,22 +360,64 @@ def make_animated_board(
         highlights = _find_highlights(narration)
 
     # --- 加载新闻配图 ---
-    IMG_W = int(W * 0.42)   # 图片占 42% 宽度
-    IMG_H = H               # 全高
-    IMG_X = 0               # 贴左边
-    IMG_Y = 0
-
     has_image = False
-    news_img_pil = _load_news_image(seg_image_url, IMG_W, IMG_H) if seg_image_url else None
+    news_img_pil = _load_news_image(seg_image_url, 800, 500) if seg_image_url else None
     if news_img_pil is not None:
         has_image = True
-        # 加渐变遮罩效果
         news_img_pil = _apply_image_overlay_effects(news_img_pil, bg_color1, bg_color2)
         news_img_np = np.array(news_img_pil)
 
-    # 文字区域：有图时右移，无图时原位
-    TEXT_LEFT = IMG_W + 60 if has_image else 180
-    TEXT_AREA_W = W - TEXT_LEFT - 80  # 右侧留白
+    # 文字始终全宽（有图时图会作为弹出覆盖层）
+    TEXT_LEFT = 180
+    TEXT_AREA_W = W - TEXT_LEFT - 80
+
+    # --- 时间轴 ---
+    fade_in = 0.4
+    fade_out = 0.4
+    title_delay = 0.3
+    line_interval = 0.6
+    hold_time = 1.5
+
+    num_items = 1 + len(highlights) + len(details)
+    content_end = title_delay + (num_items - 1) * line_interval + hold_time
+    total_duration = content_end + fade_in + fade_out
+
+    if audio_duration and audio_duration > total_duration:
+        total_duration = audio_duration
+        hold_time = total_duration - fade_in - fade_out - title_delay - (num_items - 1) * line_interval
+
+    # 图片在文字全部出完后弹出，持续到结束
+    img_appear_time = fade_in + title_delay + num_items * line_interval + 0.5  # 文字出完后 0.5s
+    img_duration = total_duration - img_appear_time - fade_out
+
+    # --- 背景 ---
+    if bg_color1 and bg_color2:
+        bg_frame = _make_bg_frame_custom(bg_color1, bg_color2)
+    else:
+        bg_frame = _make_bg_frame()
+    bg_clip = ImageClip(bg_frame).with_duration(total_duration)
+
+    clips = [bg_clip]
+
+    # --- 新闻配图（弹出覆盖层，右下角，带圆角感） ---
+    if has_image and img_duration > 0.5:
+        # 图片尺寸：占画面约 45% 宽，右下角
+        img_w, img_h = 780, 460
+        img_x = W - img_w - 100  # 右侧留 100px
+        img_y = H - img_h - 160  # 底部留 160px（给水印和字幕）
+
+        # 加白色边框效果
+        bordered = Image.new('RGBA', (img_w + 4, img_h + 4), (255, 255, 255, 40))
+        bordered.paste(news_img_pil.resize((img_w, img_h), Image.LANCZOS), (2, 2))
+        img_np_bordered = np.array(bordered)
+
+        img_clip = (
+            ImageClip(img_np_bordered)
+            .with_duration(img_duration)
+            .with_start(img_appear_time)
+            .with_position((img_x, img_y))
+        )
+        clips.append(img_clip)
 
     # --- 时间轴 ---
     fade_in = 0.4
@@ -401,13 +443,6 @@ def make_animated_board(
 
     # --- 新闻配图层 ---
     clips = [bg_clip]
-    if has_image:
-        img_clip = (
-            ImageClip(news_img_np)
-            .with_duration(total_duration)
-            .with_position((IMG_X, IMG_Y))
-        )
-        clips.append(img_clip)
 
     # 右下角水印
     wm_img = _make_text_image(logo_text, FONT_REGULAR, 24, TEXT_DIM)
