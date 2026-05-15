@@ -151,6 +151,22 @@ async def upload_video(
     print(f"  分区: {tid} (科技 > 计算机技术)")
     print(f"  视频: {video_path}")
     print(f"  大小: {file_size_mb:.1f} MB")
+    # 如果没有封面，使用默认封面（从视频首帧生成作为兜底）
+    if not cover_path or not os.path.isfile(cover_path):
+        default_cover = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "cover.jpg")
+        if os.path.isfile(default_cover):
+            cover_path = default_cover
+        else:
+            import subprocess
+            cover_path = video_path.rsplit(".", 1)[0] + "_cover.jpg"
+            subprocess.run([
+                "ffmpeg", "-y", "-i", video_path,
+                "-vf", "select=eq(n\\,0)", "-vframes", "1",
+                "-q:v", "2", cover_path
+            ], capture_output=True, timeout=30)
+            if not os.path.isfile(cover_path):
+                cover_path = ""
+
     if cover_path:
         print(f"  封面: {cover_path}")
     print("=" * 50)
@@ -159,12 +175,12 @@ async def upload_video(
         print("\n🔸 DRY RUN — 不实际上传")
         return {"dry_run": True, "title": title, "video": video_path}
 
-    # 构建 VideoMeta
+    # 构建 VideoMeta（不含封面）
     meta = video_uploader.VideoMeta(
         tid=tid,
         title=title,
         desc=desc,
-        cover=cover_path or "",  # 空字符串表示用视频首帧
+        cover=cover_path if cover_path else None,
         tags=tags,
         original=True,           # 自制
         no_reprint=True,         # 禁止转载
@@ -178,7 +194,7 @@ async def upload_video(
     )
 
     # 如果有自定义封面，先上传获取 URL
-    cover_url = ""
+    cover_obj = None
     if cover_path and os.path.isfile(cover_path):
         print("\n📎 上传封面...")
         pic = Picture()
@@ -187,15 +203,7 @@ async def upload_video(
         try:
             cover_url = await video_uploader.upload_cover(cover=pic, credential=credential)
             print(f"  ✅ 封面上传成功: {cover_url}")
-            meta = video_uploader.VideoMeta(
-                tid=tid,
-                title=title,
-                desc=desc,
-                cover=cover_url,
-                tags=tags,
-                original=True,
-                no_reprint=True,
-            )
+            cover_obj = cover_url
         except Exception as e:
             print(f"  ⚠️ 封面上传失败，将使用视频首帧: {e}")
 
@@ -204,29 +212,29 @@ async def upload_video(
         pages=[page],
         meta=meta,
         credential=credential,
-        cover=cover_url if cover_path else "",
+        cover=cover_obj or "",
     )
 
     # 事件监听
     results = {}
 
-    @uploader.on(video_uploader.VideoUploaderEvents.PREUPLOAD)
+    @uploader.on("PREUPLOAD")
     async def on_preupload(data):
         print(f"\n📤 预上传... (upload_id: {data.get('upload_id', '?')})")
 
-    @uploader.on(video_uploader.VideoUploaderEvents.PRE_PAGE)
+    @uploader.on("PRE_PAGE")
     async def on_pre_page(data):
         print(f"  ⬆️ 开始上传视频文件...")
 
-    @uploader.on(video_uploader.VideoUploaderEvents.AFTER_PAGE)
+    @uploader.on("AFTER_PAGE")
     async def on_after_page(data):
         print(f"  ✅ 视频文件上传完成")
 
-    @uploader.on(video_uploader.VideoUploaderEvents.PRE_SUBMIT)
+    @uploader.on("PRE_SUBMIT")
     async def on_pre_submit(data):
         print(f"\n📝 提交视频信息...")
 
-    @uploader.on(video_uploader.VideoUploaderEvents.AFTER_SUBMIT)
+    @uploader.on("AFTER_SUBMIT")
     async def on_after_submit(data):
         results["result"] = data
         print(f"\n🎉 发布成功！")
@@ -234,7 +242,7 @@ async def upload_video(
             print(f"   BV号: {data['bvid']}")
             print(f"   链接: https://www.bilibili.com/video/{data['bvid']}")
 
-    @uploader.on(video_uploader.VideoUploaderEvents.FAILED)
+    @uploader.on("FAILED")
     async def on_failed(data):
         results["error"] = data
         print(f"\n❌ 上传失败: {data}")

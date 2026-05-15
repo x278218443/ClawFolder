@@ -16,6 +16,7 @@ ai-video-pipeline/output/
 *.jpeg
 *.png
 *.webp
+!ai-video-pipeline/assets/
 test_loli*
 test_pidan*
 test_speech*
