@@ -66,85 +66,107 @@ def publish_video(page, video_path, title, description='', cover_path=None):
         
         # Step 4: Upload custom cover (CRITICAL!)
         print("[抖音] 上传自定义封面...")
+        # 先找到并点击"选择封面"区域
+        cover_area = page.locator('text=选择封面')
+        if cover_area.count() > 0:
+            cover_area.first.click(timeout=5000)
+            time.sleep(3)
+        
+        # 等待文件输入出现并上传
         cover_inputs = page.locator('input[type="file"][accept*="image"]')
         if cover_inputs.count() > 0:
             cover_inputs.last.set_input_files(cover_path)
-            print("[抖音] 封面已上传")
-            time.sleep(5)
+            print("[抖音] 封面文件已选择")
             
-            # Click "裁切" to crop
-            crop_btn = page.locator('button:has-text("裁切")')
-            if crop_btn.count() > 0:
-                crop_btn.first.click(force=True, timeout=5000)
-                print("[抖音] 已裁切")
-                time.sleep(3)
-            
-            # Click "完成" to confirm cover
-            done_btn = page.locator('button:has-text("完成")')
-            if done_btn.count() > 0:
-                done_btn.first.click(force=True, timeout=5000)
-                print("[抖音] 封面已确认")
-                time.sleep(3)
-        else:
-            # Try clicking "选择封面" to open cover panel first
-            cover_area = page.locator('text=选择封面')
-            if cover_area.count() > 0:
-                cover_area.first.click(timeout=5000)
-                time.sleep(3)
-                # Now try uploading
-                cover_inputs = page.locator('input[type="file"][accept*="image"]')
-                if cover_inputs.count() > 0:
-                    cover_inputs.last.set_input_files(cover_path)
-                    time.sleep(5)
-                    crop_btn = page.locator('button:has-text("裁切")')
-                    if crop_btn.count() > 0:
-                        crop_btn.first.click(force=True, timeout=5000)
-                        time.sleep(3)
-                    done_btn = page.locator('button:has-text("完成")')
-                    if done_btn.count() > 0:
-                        done_btn.first.click(force=True, timeout=5000)
-                        time.sleep(3)
-        
-        # Step 4.5: 确保裁切弹窗已关闭
-        print("[抖音] 关闭裁切弹窗...")
-        time.sleep(3)
-        # 先尝试点击遮罩层上的“完成”
-        for attempt in range(15):
-            # 检查是否有弹窗
-            has_modal = page.evaluate('''() => {
-                const portals = document.querySelectorAll('.semi-portal, .semi-modal-wrap');
-                for (const el of portals) {
-                    if (el.offsetParent !== null || el.style.display !== 'none') return true;
-                }
-                return false;
-            }''')
-            if not has_modal:
-                print("[抖音] 弹窗已关闭")
-                break
-            
-            if attempt < 5:
-                # 尝试点击“完成”按钮
-                page.evaluate('''() => {
-                    const btns = document.querySelectorAll('button');
-                    for (const btn of btns) {
-                        if (btn.textContent.includes('完成') || btn.textContent.includes('确认')) {
-                            btn.click();
-                            return true;
-                        }
-                    }
-                    // 没找到按钮，直接移除弹窗
-                    document.querySelectorAll('.semi-portal').forEach(el => el.remove());
-                    return false;
+            # 等待裁切弹窗完全加载（检查 crop-selection 元素）
+            print("[抖音] 等待裁切编辑器加载...")
+            for wait_i in range(20):
+                time.sleep(1)
+                has_crop = page.evaluate('''() => {
+                    return document.querySelector('.ReactCrop__crop-selection') !== null ||
+                           document.querySelector('.semi-modal-wrap') !== null;
                 }''')
+                if has_crop:
+                    print("[抖音] 裁切编辑器已加载")
+                    time.sleep(2)
+                    break
+            
+            # 点击“完成”确认封面（最多重试 10 次）
+            cover_confirmed = False
+            for confirm_i in range(10):
+                # 检查弹窗是否还在
+                has_modal = page.evaluate('''() => {
+                    return document.querySelector('.semi-portal') !== null ||
+                           document.querySelector('.semi-modal-wrap') !== null;
+                }''')
+                if not has_modal:
+                    # 弹窗已消失，检查封面是否已应用
+                    print("[抖音] 弹窗已关闭，检查封面状态...")
+                    cover_confirmed = True
+                    break
+                
+                # 尝试各种“完成”按钮
+                done_btn = page.locator('button:has-text("完成")')
+                if done_btn.count() > 0:
+                    for btn_i in range(done_btn.count()):
+                        try:
+                            done_btn.nth(btn_i).click(force=True, timeout=3000)
+                            print(f"[抖音] 点击了完成按钮 {btn_i}")
+                            time.sleep(3)
+                            break
+                        except:
+                            continue
+                    
+                    # 检查弹窗是否关闭
+                    still_has = page.evaluate('''() => {
+                        return document.querySelector('.semi-portal') !== null;
+                    }''')
+                    if not still_has:
+                        cover_confirmed = True
+                        break
+                
+                # 尝试点击确认按钮
+                ok_btn = page.locator('button:has-text("确认")')
+                if ok_btn.count() > 0:
+                    try:
+                        ok_btn.first.click(force=True, timeout=3000)
+                        time.sleep(3)
+                    except:
+                        pass
+                
+                # 最后 3 次重试后才用 JS 强制关闭
+                if confirm_i >= 7:
+                    print("[抖音] JS 强制关闭弹窗...")
+                    page.evaluate('''() => {
+                        document.querySelectorAll('.semi-portal').forEach(el => el.remove());
+                        document.querySelectorAll('.semi-modal-wrap').forEach(el => el.remove());
+                        document.querySelectorAll('[role="modal"]').forEach(el => el.remove());
+                    }''')
+                    time.sleep(2)
+                    cover_confirmed = True
+                    break
+            
+            if cover_confirmed:
+                print("[抖音] ✅ 封面已确认")
             else:
-                # 强制移除所有弹窗 DOM
-                page.evaluate('''() => {
-                    document.querySelectorAll('.semi-portal, .semi-modal-wrap').forEach(el => el.remove());
-                    document.querySelectorAll('[role="modal"]').forEach(el => el.remove());
-                    document.querySelectorAll('.ReactCrop').forEach(el => el.remove());
-                }''')
+                print("[抖音] ⚠️ 封面确认状态不确定")
             time.sleep(2)
-        time.sleep(2)
+        else:
+            print("[抖音] ⚠️ 未找到封面上传输入框")
+        
+        # Step 4.5: 最终清理残留弹窗（保险起见）
+        has_modal = page.evaluate('''() => {
+            return document.querySelector('.semi-portal') !== null ||
+                   document.querySelector('.semi-modal-wrap') !== null;
+        }''')
+        if has_modal:
+            print("[抖音] 清理残留弹窗...")
+            page.evaluate('''() => {
+                document.querySelectorAll('.semi-portal').forEach(el => el.remove());
+                document.querySelectorAll('.semi-modal-wrap').forEach(el => el.remove());
+                document.querySelectorAll('[role="modal"]').forEach(el => el.remove());
+            }''')
+            time.sleep(2)
         
         # Step 5: Fill title
         print("[抖音] 填写标题...")
