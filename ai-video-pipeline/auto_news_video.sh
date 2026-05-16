@@ -7,6 +7,11 @@
 set -e
 cd "$(dirname "$0")"
 
+# 加载 nvm/node/npm PATH（cron 环境没有）
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+export PATH="$HOME/.nvm/versions/node/$(ls $HOME/.nvm/versions/node/ 2>/dev/null | tail -1)/bin:$PATH"
+
 WAIT=true
 NEWS_FILE=""
 
@@ -85,8 +90,27 @@ if [ -n "$FINAL_PATH" ] && [ -f "$FINAL_PATH" ]; then
         echo "⚠️ B站发布失败，视频保存在: $FINAL_PATH"
     fi
 
-    # Step 4: 推送视频到飞书
-    echo -e "\n[4/4] 推送视频到飞书..."
+    # Step 4: 发布到抖音
+    echo -e "\n[4/5] 发布到抖音..."
+    DOUYIN_TITLE="AI早知道-$(date '+%Y年%-m月%-d日')"
+    DOUYIN_DESC="AI早知道 #AI #AI大模型 #AI日报 #程序 #AI毁灭人类"
+    # 确保抖音 MCP daemon 运行（用 xvfb 提供虚拟显示）
+    if ! curl -s --connect-timeout 2 http://127.0.0.1:40225/health >/dev/null 2>&1; then
+        echo "  启动抖音 MCP daemon (xvfb)..."
+        cd ~/.openclaw/workspace/skills/douyin-upload-mcp-skill
+        nohup xvfb-run -a node src/daemon/server.js > /tmp/douyin-daemon.log 2>&1 &
+        sleep 5
+        cd "${PIPELINE_DIR}"
+    fi
+    python3 "${PIPELINE_DIR}/douyin_publish_cli.py" --video "$FINAL_PATH" --title "$DOUYIN_TITLE" --desc "$DOUYIN_DESC" 2>&1
+    if [ $? -eq 0 ]; then
+        echo "✅ 已发布到抖音"
+    else
+        echo "⚠️ 抖音发布失败，视频保存在: $FINAL_PATH"
+    fi
+
+    # Step 5: 推送视频到飞书
+    echo -e "\n[5/5] 推送视频到飞书..."
     FEISHU_TARGET="user:ou_74504c7998ca288e6531039420584403"
     openclaw message send --channel feishu \
         --target "$FEISHU_TARGET" \

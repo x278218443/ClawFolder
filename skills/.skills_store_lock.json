@@ -84,6 +84,12 @@
       "zip_url": "https://lightmake.site/api/v1/download?slug=mimo-tts",
       "source": "skillhub",
       "version": "1.2.0"
+    },
+    "douyin-video-publish": {
+      "name": "抖音视频发布",
+      "zip_url": "https://lightmake.site/api/v1/download?slug=douyin-video-publish",
+      "source": "skillhub",
+      "version": "1.0.0"
     }
   }
 }

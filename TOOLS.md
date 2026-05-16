@@ -63,3 +63,11 @@ Add whatever helps you do your job. This is your cheat sheet.
 - 模型：speech-2.8-hd
 - 地区端点：api.minimaxi.com
 - 用途：默认语音说话
+
+## 抖音发布格式
+- 标题：AI早知道-YYYY年M月D日（如：AI早知道-2026年5月15日）
+- 描述：AI早知道 #AI #AI大模型 #AI日报 #程序 #AI毁灭人类
+- 封面：必须上传自定义封面（assets/cover.jpg），不能用自动生成的
+- 关键：create_v2 API 返回空响应 = 封面不符合要求
+- daemon 必须用 xvfb-run 启动（cron 环境无显示器）
+- 不要关闭现有 browser context 页面（会导致 daemon 退出）
