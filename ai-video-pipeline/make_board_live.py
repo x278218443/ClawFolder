@@ -12,6 +12,7 @@ from datetime import datetime
 sys.path.insert(0, os.path.dirname(__file__))
 from tts_engine import synthesize_speech
 from board_maker_anim import make_animated_board, make_animated_board_with_audio, make_title_card
+from image_fetcher import _generate_from_seedream, _enhance_prompt, _load_ark_key
 from config import OUTPUT_DIR
 
 W, H = 1920, 1080
@@ -185,6 +186,41 @@ def main():
     print(f"  {now.strftime('%Y-%m-%d %H:%M')}")
     print("=" * 50)
 
+    # 0. AI 配图（用 Seedream 为每条新闻生成相关配图）
+    ark_key = _load_ark_key()
+    if ark_key:
+        images_dir = os.path.join(output_dir, "images")
+        os.makedirs(images_dir, exist_ok=True)
+        print("\n[配图] 为新闻生成 AI 配图...")
+        for seg in segments:
+            sid = seg["id"]
+            seg_type = seg.get("type", "news")
+            if seg_type == "title":
+                continue  # 标题卡不需要配图
+            headline = seg.get("headline", "")
+            if not headline:
+                continue
+            # 用标题生成英文 prompt
+            prompt = _enhance_prompt(headline)
+            img_path = os.path.join(images_dir, f"seg_{sid:02d}.jpg")
+            if os.path.exists(img_path):
+                seg["image_path"] = img_path
+                print(f"  seg_{sid:02d}: 已有配图")
+                continue
+            try:
+                ok = _generate_from_seedream(prompt, img_path, ark_key)
+                if ok:
+                    seg["image_path"] = img_path
+                    print(f"  seg_{sid:02d}: ✅ {headline[:30]}")
+                else:
+                    print(f"  seg_{sid:02d}: ⚠️ 生成失败")
+            except Exception as e:
+                print(f"  seg_{sid:02d}: ❌ {e}")
+        n_ok = sum(1 for s in segments if s.get("image_path"))
+        print(f"[配图] 完成: {n_ok}/{len(segments)} 张")
+    else:
+        print("\n[配图] 未配置 ARK_API_KEY，跳过 AI 配图")
+
     # 1. TTS
     print("\n[1/3] 生成 TTS 语音...")
     for seg in segments:
@@ -219,7 +255,7 @@ def main():
 
         print(f"  seg_{sid:02d}: {seg_type} / {target_dur:.1f}s ...")
         try:
-            img_path = seg.get("image_url") or seg.get("image_path")
+            img_path = seg.get("image_path") or seg.get("image_url")
             if tts_path and os.path.exists(tts_path):
                 make_animated_board_with_audio(
                     seg, tts_path, seg_path,

@@ -195,24 +195,22 @@ def _generate_from_dashscope(prompt: str, output_path: str, api_key: str, size: 
 
 def _enhance_prompt(query: str) -> str:
     """
-    将简短的 image_query 增强为适合 AI 生图的英文 prompt
-
-    橘鸦风格：真实感科技新闻配图，每个新闻主题独立画面
+    将新闻标题增强为适合 AI 生图的 prompt
+    Seedream 是中文模型，直接用中文效果更好
     """
-    # 基础风格前缀 — 模拟真实新闻摄影
+    # 中文新闻场景前缀
     style = (
-        "Ultra realistic photojournalism, tech news broadcast style, "
-        "professional editorial photography, sharp focus, natural lighting, "
-        "modern corporate or technology setting, 16:9 wide angle, "
-        "no text, no watermark, high resolution. "
+        "超写实新闻摄影，科技新闻播报风格，专业编辑摄影，"
+        "清晰对焦，自然光线，现代办公或科技场景，16:9宽幅，"
+        "无文字，无水印，高分辨率。"
     )
-
-    # 如果 query 已经比较详细（>30 字符），直接用
-    if len(query) > 30:
+    
+    # 如果 query 已经比较详细（>15字），直接用
+    if len(query) > 15:
         return style + query
-
-    # 简短 query 加上具体场景描述
-    return style + f"Realistic scene about {query}, tech company office, product launch, or technology concept, editorial news photography"
+    
+    # 简短 query 加上场景描述
+    return style + f"关于{query}的科技新闻配图，现代办公环境"
 
 
 # ============================================================
