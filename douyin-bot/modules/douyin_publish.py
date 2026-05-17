@@ -154,19 +154,43 @@ def publish_video(page, video_path, title, description='', cover_path=None):
         else:
             print("[抖音] ⚠️ 未找到封面上传输入框")
         
-        # Step 4.5: 最终清理残留弹窗（保险起见）
-        has_modal = page.evaluate('''() => {
-            return document.querySelector('.semi-portal') !== null ||
-                   document.querySelector('.semi-modal-wrap') !== null;
-        }''')
-        if has_modal:
-            print("[抖音] 清理残留弹窗...")
+        # Step 4.5: 最终清理所有残留弹窗（保险起见）
+        # 多轮清理，确保 "设置竖封面" 等弹窗全部消失
+        for cleanup_round in range(5):
+            has_modal = page.evaluate('''() => {
+                return document.querySelector('.semi-portal') !== null ||
+                       document.querySelector('.semi-modal-wrap') !== null ||
+                       document.querySelector('.dy-creator-content-portal') !== null;
+            }''')
+            if not has_modal:
+                break
+            print(f"[抖音] 清理残留弹窗 (第{cleanup_round+1}轮)...")
+            # 先尝试点击关闭按钮
+            try:
+                close_btns = page.locator('.semi-modal-wrap button:has-text("关闭"), .semi-portal button:has-text("关闭"), .dy-creator-content-portal button:has-text("关闭")')
+                if close_btns.count() > 0:
+                    close_btns.first.click(force=True, timeout=2000)
+                    time.sleep(1)
+            except:
+                pass
+            # 再尝试点击 X 图标
+            try:
+                close_icons = page.locator('.semi-modal-wrap .semi-modal-close, .semi-portal .semi-modal-close, .dy-creator-content-portal .semi-modal-close')
+                if close_icons.count() > 0:
+                    close_icons.first.click(force=True, timeout=2000)
+                    time.sleep(1)
+            except:
+                pass
+            # 最后 JS 强制移除
             page.evaluate('''() => {
                 document.querySelectorAll('.semi-portal').forEach(el => el.remove());
                 document.querySelectorAll('.semi-modal-wrap').forEach(el => el.remove());
+                document.querySelectorAll('.dy-creator-content-portal').forEach(el => el.remove());
                 document.querySelectorAll('[role="modal"]').forEach(el => el.remove());
+                document.querySelectorAll('[role="dialog"]').forEach(el => el.remove());
             }''')
             time.sleep(2)
+        time.sleep(2)
         
         # Step 5: Fill title
         print("[抖音] 填写标题...")

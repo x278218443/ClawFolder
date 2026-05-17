@@ -7,6 +7,29 @@
 set -e
 cd "$(dirname "$0")"
 
+# 失败时飞书通知小花
+notify_failure() {
+    local STEP="$1"
+    local LOG_FILE="$2"
+    local TAIL_LOG=""
+    if [ -n "$LOG_FILE" ] && [ -f "$LOG_FILE" ]; then
+        TAIL_LOG=$(tail -20 "$LOG_FILE")
+    fi
+    local MSG="🚨 AI早报流水线失败\n环节: ${STEP}\n时间: $(date '+%Y-%m-%d %H:%M:%S')\n\n最后日志:\n${TAIL_LOG}"
+    openclaw message send --channel feishu \
+        --target "user:ou_74504c7998ca288e6531039420584403" \
+        --message "$MSG" 2>/dev/null || true
+}
+
+# 全局 trap：脚本异常退出时通知
+on_error() {
+    local EXIT_CODE=$?
+    if [ $EXIT_CODE -ne 0 ]; then
+        notify_failure "脚本异常退出(code=$EXIT_CODE)" "${OUTPUT_DIR:-/tmp}/cron.log"
+    fi
+}
+trap on_error EXIT
+
 # 加载 nvm/node/npm PATH（cron 环境没有）
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
@@ -59,6 +82,7 @@ if [ -z "$NEWS_FILE" ]; then
     python3 "${SKILL_DIR}/scripts/fetch_news.py" 7 "$NEWS_FILE" 2>&1
     if [ ! -f "$NEWS_FILE" ]; then
         echo "❌ 新闻抓取失败，退出"
+        notify_failure "新闻抓取" ""
         exit 1
     fi
     echo "✅ 新闻已保存: $NEWS_FILE"
@@ -83,11 +107,13 @@ if [ -n "$FINAL_PATH" ] && [ -f "$FINAL_PATH" ]; then
 
     # Step 3: 发布到 B站
     echo -e "\n[3/4] 发布到 B站..."
-    python3 "${PIPELINE_DIR}/bilibili_publish.py" --video "$FINAL_PATH" 2>&1
-    if [ $? -eq 0 ]; then
+    BILI_RESULT=$(python3 "${PIPELINE_DIR}/bilibili_publish.py" --video "$FINAL_PATH" 2>&1)
+    echo "$BILI_RESULT"
+    if echo "$BILI_RESULT" | grep -qi '成功\|✅\|success'; then
         echo "✅ 已发布到 B站"
     else
         echo "⚠️ B站发布失败，视频保存在: $FINAL_PATH"
+        notify_failure "B站发布" "$BILI_RESULT"
     fi
 
     # Step 4: 发布到抖音
@@ -97,16 +123,16 @@ if [ -n "$FINAL_PATH" ] && [ -f "$FINAL_PATH" ]; then
     # 确保抖音 MCP daemon 运行（用 xvfb 提供虚拟显示）
     if ! curl -s --connect-timeout 2 http://127.0.0.1:40225/health >/dev/null 2>&1; then
         echo "  启动抖音 MCP daemon (xvfb)..."
-        cd ~/.openclaw/workspace/skills/douyin-upload-mcp-skill
-        nohup xvfb-run -a node src/daemon/server.js > /tmp/douyin-daemon.log 2>&1 &
+        (cd ~/.openclaw/workspace/skills/douyin-upload-mcp-skill && nohup xvfb-run -a node src/daemon/server.js > /tmp/douyin-daemon.log 2>&1 &)
         sleep 5
-        cd "${PIPELINE_DIR}"
     fi
-    python3 "${PIPELINE_DIR}/douyin_publish_cli.py" --video "$FINAL_PATH" --title "$DOUYIN_TITLE" --desc "$DOUYIN_DESC" 2>&1
-    if [ $? -eq 0 ]; then
+    DOUYIN_RESULT=$(python3 "${PIPELINE_DIR}/douyin_publish_cli.py" --video "$FINAL_PATH" --title "$DOUYIN_TITLE" --desc "$DOUYIN_DESC" --cover "${PIPELINE_DIR}/assets/cover_douyin.jpg" 2>&1)
+    echo "$DOUYIN_RESULT"
+    if echo "$DOUYIN_RESULT" | grep -qi '成功\|✅\|success'; then
         echo "✅ 已发布到抖音"
     else
         echo "⚠️ 抖音发布失败，视频保存在: $FINAL_PATH"
+        notify_failure "抖音发布" "$DOUYIN_RESULT"
     fi
 
     # Step 5: 推送视频到飞书
@@ -123,5 +149,6 @@ if [ -n "$FINAL_PATH" ] && [ -f "$FINAL_PATH" ]; then
     fi
 else
     echo -e "\n❌ 视频生成失败"
+    notify_failure "视频生成" ""
     exit 1
 fi

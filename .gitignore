@@ -22,3 +22,5 @@ test_pidan*
 test_speech*
 test.txt
 !README.md
+douyin-bot/config/browser_state.json
+douyin-bot/config/cookies.json

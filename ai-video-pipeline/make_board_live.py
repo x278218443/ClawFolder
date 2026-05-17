@@ -186,40 +186,57 @@ def main():
     print(f"  {now.strftime('%Y-%m-%d %H:%M')}")
     print("=" * 50)
 
-    # 0. AI 配图（用 Seedream 为每条新闻生成相关配图）
+    # 0. 配图：优先用新闻原图，抓不到再 AI 生成
     ark_key = _load_ark_key()
-    if ark_key:
-        images_dir = os.path.join(output_dir, "images")
-        os.makedirs(images_dir, exist_ok=True)
-        print("\n[配图] 为新闻生成 AI 配图...")
-        for seg in segments:
-            sid = seg["id"]
-            seg_type = seg.get("type", "news")
-            if seg_type == "title":
-                continue  # 标题卡不需要配图
-            headline = seg.get("headline", "")
-            if not headline:
-                continue
-            # 用标题生成英文 prompt
+    images_dir = os.path.join(output_dir, "images")
+    os.makedirs(images_dir, exist_ok=True)
+    print("\n[配图] 获取新闻配图...")
+    for seg in segments:
+        sid = seg["id"]
+        seg_type = seg.get("type", "news")
+        if seg_type == "title":
+            continue  # 标题卡不需要配图
+        headline = seg.get("headline", "")
+        if not headline:
+            continue
+        img_path = os.path.join(images_dir, f"seg_{sid:02d}.jpg")
+        # 已有本地缓存
+        if os.path.exists(img_path):
+            seg["image_path"] = img_path
+            print(f"  seg_{sid:02d}: 已有配图")
+            continue
+        # 优先用新闻原图
+        news_img_url = seg.get("image_url", "")
+        if news_img_url:
+            try:
+                import requests as _req
+                _resp = _req.get(news_img_url, timeout=10, headers={
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                })
+                if _resp.status_code == 200 and len(_resp.content) > 5000:
+                    with open(img_path, "wb") as f:
+                        f.write(_resp.content)
+                    seg["image_path"] = img_path
+                    print(f"  seg_{sid:02d}: ✅ 新闻原图 ({len(_resp.content)//1024}KB)")
+                    continue
+            except Exception as e:
+                print(f"  seg_{sid:02d}: ⚠️ 新闻原图下载失败: {e}")
+        # 新闻原图没有，AI 生成
+        if ark_key:
             prompt = _enhance_prompt(headline)
-            img_path = os.path.join(images_dir, f"seg_{sid:02d}.jpg")
-            if os.path.exists(img_path):
-                seg["image_path"] = img_path
-                print(f"  seg_{sid:02d}: 已有配图")
-                continue
             try:
                 ok = _generate_from_seedream(prompt, img_path, ark_key)
                 if ok:
                     seg["image_path"] = img_path
-                    print(f"  seg_{sid:02d}: ✅ {headline[:30]}")
+                    print(f"  seg_{sid:02d}: ✅ AI配图 {headline[:30]}")
                 else:
-                    print(f"  seg_{sid:02d}: ⚠️ 生成失败")
+                    print(f"  seg_{sid:02d}: ⚠️ AI 生成失败")
             except Exception as e:
                 print(f"  seg_{sid:02d}: ❌ {e}")
-        n_ok = sum(1 for s in segments if s.get("image_path"))
-        print(f"[配图] 完成: {n_ok}/{len(segments)} 张")
-    else:
-        print("\n[配图] 未配置 ARK_API_KEY，跳过 AI 配图")
+        else:
+            print(f"  seg_{sid:02d}: ⚠️ 无新闻图且无 ARK_API_KEY")
+    n_ok = sum(1 for s in segments if s.get("image_path"))
+    print(f"[配图] 完成: {n_ok}/{len(segments)} 张")
 
     # 1. TTS
     print("\n[1/3] 生成 TTS 语音...")

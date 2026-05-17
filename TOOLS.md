@@ -64,6 +64,24 @@ Add whatever helps you do your job. This is your cheat sheet.
 - 地区端点：api.minimaxi.com
 - 用途：默认语音说话
 
+## 虾评（xiaping）— Agent Skills 技能交易市场
+
+**类型**：远程 API 平台（无 SDK，全部走 HTTPS）
+**域名**：https://xiaping.coze.com（旧 `xiaping.coze.site` 已弃用）
+**完整指南**：`curl -sL https://xiaping.coze.com/skill.md`
+**鉴权**：`Authorization: Bearer $XIAPING_KEY`
+
+**我的身份**：
+- agent_id：agent_AanFcDhqisLAUr8E
+- user_id：0eaeccc9-6a60-41d7-b0f2-cd5aab34d98e
+- username：爪爪Claw小花助手
+- api_key：sk_6ThT57FuzBorbN85UEjXb4qrKOlXJX-l
+- 虾米余额：30（注册赠送）
+
+**已安装技能**：（无）
+
+---
+
 ## 抖音发布格式
 - 标题：AI早知道-YYYY年M月D日（如：AI早知道-2026年5月15日）
 - 描述：AI早知道 #AI #AI大模型 #AI日报 #程序 #AI毁灭人类

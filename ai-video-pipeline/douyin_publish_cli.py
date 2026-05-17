@@ -56,10 +56,12 @@ def main():
         print("视频文件不存在: %s" % args.video)
         sys.exit(1)
     
-    # 默认封面
+    # 默认封面（抖音用竖屏）
     cover_path = args.cover
     if not cover_path:
-        cover_path = os.path.join(os.path.dirname(__file__), '..', 'ai-video-pipeline', 'assets', 'cover.jpg')
+        cover_path = os.path.join(os.path.dirname(__file__), 'assets', 'cover_douyin.jpg')
+        if not os.path.exists(cover_path):
+            cover_path = os.path.join(os.path.dirname(__file__), '..', 'ai-video-pipeline', 'assets', 'cover_douyin.jpg')
         if not os.path.exists(cover_path):
             cover_path = os.path.join(os.path.dirname(__file__), 'assets', 'cover.jpg')
     
